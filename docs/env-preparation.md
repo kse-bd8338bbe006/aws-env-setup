@@ -24,10 +24,9 @@ Prerequisites:
 - Bank card (use a virtual card with a low spending limit)
 - Phone number (for mobile verification)
 
-At the time of my registration, you may provided with 100 USD in credits and additional bonuses for completing activities:
+At the time of my registration, I was provided with 100 USD in credits and additional bonuses for completing activities:
 
 ![alt text](image-13.png)
-
 
 ### Region
 
@@ -65,8 +64,9 @@ Go to IAM in AWS and create a new user.
 On the last screen you get the Console Sign-In details:
 https://894120233078.signin.aws.amazon.com/console
 
-Add this url to the browser bookmarks.
+Add this URL to your browser bookmarks.
 
+### Create an Administrators group
 Now go to groups and create an Administrators group:
 https://us-east-1.console.aws.amazon.com/iam/home?region=eu-central-1#/groups/create
 
@@ -89,41 +89,41 @@ Select AdministratorAccess as the attached policy:
 }
 ```
 
-Add the user to the group:
+Add the created user to the group:
+
 ![alt text](image-18.png)
 
-The same can be done with the AWS CLI:
+We use the AWS UI so that you can feel more comfortable working with the interface and become more familiar with it. The same can be done with the AWS CLI:
+
+<details>
+<summary>CLI alternative (click to expand)</summary>
 
 ```bash
+# Create group and attach policy
 aws iam create-group --group-name Administrators
-
 aws iam attach-group-policy \
   --group-name Administrators \
   --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
 
+# Create user with console access
 aws iam create-user --user-name john
-
 aws iam create-login-profile \
   --user-name john \
   --password "StrongPassword123!" \
   --password-reset-required
-```
 
-If you want an access key for programmatic use:
-
-```bash
-aws iam create-access-key --user-name john
-```
-
-Add the user to the group:
-
-```bash
+# Add user to group
 aws iam add-user-to-group \
   --user-name john \
   --group-name Administrators
+
+# Create access key for programmatic use
+aws iam create-access-key --user-name john
 ```
 
-We use the AWS UI so that you can feel more comfortable working with the interface and become more familiar with it.
+</details>
+
+### Create an Access Key
 
 The last step for user configuration is to create an Access Key:
 https://us-east-1.console.aws.amazon.com/iam/home?region=eu-central-1#/users/details/admin/create-access-key
@@ -144,6 +144,8 @@ We are not going to use any of these approaches. We keep things simple and creat
 
 ![alt text](image-20.png)
 
+### Create a CI/CD user
+
 You also need to create a separate IAM user for Terraform and CI named `ci-bot`:
 
 ![alt text](image-21.png)
@@ -153,4 +155,5 @@ Add it to the Administrators group:
 ![alt text](image-22.png)
 
 ### Create a budget in AWS
-And the last step we have to set up a billing budget to avoid unexpected charges. You can follow [this guide](https://www.udemy.com/course/devops-deployment-automation-terraform-aws-docker/learn/lecture/43769728#notes) or configure it directly in the AWS Billing console under Budgets.
+
+The last step is to set up a billing budget to avoid unexpected charges. You can follow [this guide](https://www.udemy.com/course/devops-deployment-automation-terraform-aws-docker/learn/lecture/43769728#notes) or configure it directly in the AWS Billing console under Budgets.
