@@ -369,22 +369,26 @@ main
  └── fix/ecs-task-role
 ```
 
-All infrastructure lives in a single **monorepo**. Each environment or component gets its own directory with an independent Terraform state, but they share modules and go through the same PR review process:
+All infrastructure lives in a single repository with a flat structure — one Terraform root module under `infra/`:
 
 ```
-infrastructure/
- ├── modules/          # reusable Terraform modules
- │   ├── vpc/
- │   └── ecs/
- ├── prod/             # production root module
- │   ├── main.tf
- │   └── backend.tf
- └── dev/              # development root module (add later)
-     ├── main.tf
-     └── backend.tf
+aws-env-setup/
+├── .github/
+│   └── workflows/
+│       ├── terraform-deploy.yml    # Plan on PR, apply on merge
+│       └── terraform-destroy.yml   # Manual teardown
+├── infra/                          # Terraform root module
+│   ├── main.tf                     # Provider, backend, locals
+│   ├── variables.tf                # Input variables
+│   ├── outputs.tf                  # cicd-bot access keys
+│   ├── iam.tf                      # cicd-bot user + policies
+│   ├── network.tf                  # VPC, subnets, NAT, endpoints
+│   └── budgets.tf                  # AWS budget alarm
+├── docs/                           # Lab documentation
+└── .gitignore                      # Terraform state exclusions
 ```
 
-This approach keeps things simple — no long-lived environment branches that drift apart, no complex promotion pipelines. Adding a new environment is just adding a new directory, not a new branch.
+This approach keeps things simple — all changes go through PRs, and a single `infra/` directory holds the complete environment.
 
 #### Create a PROD environment in GitHub
 
