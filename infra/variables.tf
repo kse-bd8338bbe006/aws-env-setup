@@ -7,11 +7,6 @@ variable "region" {
   default = "eu-central-1"
 }
 
-variable "domain_name" {
-  description = "Your Route53 hosted domain"
-  default     = "codedevops.blog"
-
-}
 
 
 variable "tf_state_bucket" {
