@@ -8,5 +8,3 @@ output "cd_user_access_key_secret" {
   value       = aws_iam_access_key.cd.secret
   sensitive   = true
 }
-
-
