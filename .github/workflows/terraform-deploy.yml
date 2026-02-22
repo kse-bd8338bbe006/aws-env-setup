@@ -1,0 +1,120 @@
+name: Terraform AWS Deploy
+
+on:
+  pull_request:
+    branches: [ "main" ]
+    paths: [ "infra/**" ]
+  push:
+    branches: [ "main" ]
+    paths: [ "infra/**" ]
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write  # For commenting on PRs
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    environment: PROD
+    if: github.event_name == 'pull_request'
+    
+    steps:
+      # Checkout repository
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      # Configure AWS credentials
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      # Cache Terraform plugin directory (faster CI)
+      - name: Cache TF plugins
+        uses: actions/cache@v4
+        with:
+          path: ~/.terraform.d/plugin-cache
+          key: terraform-${{ runner.os }}-${{ hashFiles('infra/**/*.tf') }}
+
+      # Install Terraform
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.6
+
+
+      # Init
+      - name: Terraform Init
+        run: terraform init -input=false
+        working-directory: ./infra
+
+      # Validate
+      - name: Terraform Validate
+        run: terraform validate        
+
+      # Security Scan with Checkov
+      - name: Run Checkov Security Scan
+        run: |
+          pip install checkov
+          checkov -d ./infra --framework terraform --output cli
+        continue-on-error: true
+
+      # Plan
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -input=false -out=tfplan -no-color
+        working-directory: ./infra
+
+      # Post plan to PR
+      - name: Add Plan to PR
+        if: github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          message: |
+            ## Terraform Plan
+            ```
+            ${{ steps.plan.outputs.stdout }}
+            ```        
+
+  apply:
+    runs-on: ubuntu-latest
+    environment: PROD
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+      # Checkout repository
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      # Configure AWS credentials
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      # Install Terraform
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.6
+
+      # Init
+      - name: Terraform Init
+        run: terraform init -input=false
+        working-directory: ./infra
+
+      # Plan and Apply
+      - name: Terraform Plan
+        run: terraform plan -input=false
+        working-directory: ./infra
+
+      # Apply
+      - name: Terraform Apply
+        run: terraform apply -input=false -auto-approve
+        working-directory: ./infra
+        
