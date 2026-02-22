@@ -120,7 +120,7 @@ sequenceDiagram
 sequenceDiagram
     actor Dev as Developer
     participant GH as GitHub
-    participant Teardown as Destroy Job
+    participant Destroy as Destroy Job
     participant Approver as Reviewer
     participant AWS as AWS
 
@@ -128,14 +128,14 @@ sequenceDiagram
 
     Note over GH: Manual trigger only
 
-    GH->>Teardown: Start destroy job
+    GH->>Destroy: Start destroy job
 
-    Note over Teardown,Approver: PROD environment<br/>requires manual approval
+    Note over Destroy,Approver: PROD environment<br/>requires manual approval
 
     Approver->>GH: Approve destruction
-    Teardown->>AWS: terraform init
-    Teardown->>AWS: terraform destroy -auto-approve
-    AWS-->>Teardown: All resources destroyed
+    Destroy->>AWS: terraform init
+    Destroy->>AWS: terraform destroy -auto-approve
+    AWS-->>Destroy: All resources destroyed
 ```
 
 ### Network architecture
