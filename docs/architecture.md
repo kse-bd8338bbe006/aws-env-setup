@@ -135,10 +135,8 @@ sequenceDiagram
 
     Approver->>GH: Approve destruction
     DJ->>AWS: terraform init
-    DJ->>DJ: terraform state rm (IAM resources)
-    Note over DJ: Remove cicd-bot from state<br/>so destroy won't delete its own credentials
     DJ->>AWS: terraform destroy -auto-approve
-    AWS-->>DJ: All resources destroyed<br/>(cicd-bot preserved)
+    AWS-->>DJ: All resources destroyed<br/>(cicd-bot not managed by TF)
 ```
 
 ### Network architecture
@@ -192,11 +190,12 @@ aws-env-setup/
 ├── infra/                          # Terraform root module
 │   ├── main.tf                     # Provider, backend, locals
 │   ├── variables.tf                # Input variables
-│   ├── outputs.tf                  # cicd-bot access keys + web IP
-│   ├── iam.tf                      # cicd-bot user + policies
+│   ├── outputs.tf                  # Web server public IP
 │   ├── ec2.tf                      # EC2 web server (Nginx)
 │   ├── network.tf                  # VPC, subnets, NAT, endpoints
 │   └── budgets.tf                  # AWS budget alarm
+├── scripts/
+│   └── setup-cicd-bot.sh           # One-time cicd-bot IAM setup
 ├── docs/                           # Lab documentation
 └── .gitignore                      # Terraform state exclusions
 ```
@@ -211,55 +210,26 @@ aws-env-setup/
 | DynamoDB table (lock) | Manual | Same reason |
 | VPC, subnets, NAT, endpoints | Terraform | Core infrastructure |
 | EC2 instance (Nginx web server) | Terraform | Simple public web server in public subnet |
-| `cicd-bot` IAM user + policies | Terraform (`prevent_destroy`) | CI/CD credentials — removed from state before destroy to avoid deleting its own credentials |
+| `cicd-bot` IAM user + policies | Manual (`scripts/setup-cicd-bot.sh`) | CI/CD credentials — managed outside Terraform to avoid circular dependency |
 | Budget alarm ($50/month) | Terraform | Automated cost control |
 | GitHub environment + secrets | Manual | GitHub-side config, not AWS |
 
-### Retrieving cicd-bot credentials
+### Setting up cicd-bot (one-time)
 
-The `cicd-bot` IAM user and access key are managed by Terraform with `prevent_destroy` lifecycle. After the initial `terraform apply` (run with admin credentials), retrieve the cicd-bot credentials before configuring AWS CLI:
+The `cicd-bot` IAM user is managed **outside of Terraform** to avoid circular dependencies (CI needs credentials to run Terraform, but Terraform would need to create those credentials).
+
+Run the setup script once with admin AWS credentials:
 
 ```bash
-# 1. Get the cicd-bot credentials from Terraform output
-terraform output cd_user_access_key_id
-terraform output -raw cd_user_access_key_secret
-
-# 2. Configure AWS CLI with the cicd-bot credentials
-aws configure
+./scripts/setup-cicd-bot.sh
 ```
 
-Then add the same credentials to your GitHub repository secrets (Settings > Environments > PROD):
+The script creates the user, attaches policies, and prints the access key credentials. Add them to GitHub (Settings > Environments > PROD > Secrets):
 - `AWS_ACCESS_KEY_ID` — access key ID
 - `AWS_SECRET_ACCESS_KEY` — secret access key
 - `AWS_REGION` (variable) — `eu-central-1`
 
-### Bootstrap and re-deploy after destroy
-
-The `cicd-bot` IAM user is both **managed by Terraform** and **used by CI to run Terraform**. This creates a bootstrap dependency:
-
-1. **First deploy (bootstrap)** — must be run locally with `admin` credentials:
-   ```bash
-   cd infra
-   terraform init
-   terraform apply
-   ```
-   This creates `cicd-bot` + all infrastructure. Retrieve credentials (see [Retrieving cicd-bot credentials](#retrieving-cicd-bot-credentials)) and store them in GitHub secrets.
-
-2. **Subsequent deploys** — handled by CI using `cicd-bot` credentials automatically.
-
-3. **After `terraform destroy`** — the destroy workflow removes IAM resources from state before destroying, so `cicd-bot` survives in AWS but is **no longer in Terraform state**. To re-deploy:
-   ```bash
-   cd infra
-   terraform init
-   # Import the existing cicd-bot resources back into state
-   terraform import aws_iam_user.cd cicd-bot
-   terraform import aws_iam_access_key.cd <ACCESS_KEY_ID>
-   # Then apply to create the rest of the infrastructure
-   terraform apply
-   ```
-   Alternatively, run `terraform apply` locally with admin credentials — Terraform will detect that `cicd-bot` already exists and error. Use `terraform import` for the IAM resources, then re-run `terraform apply`.
-
-> **Why not just re-create cicd-bot?** The access key secret is only available at creation time. If you let Terraform create a new access key, you'll need to update GitHub secrets with the new credentials.
+After this, CI handles all deploys and destroys automatically. The `cicd-bot` user is never touched by `terraform destroy`.
 
 ### Safety mechanisms
 
