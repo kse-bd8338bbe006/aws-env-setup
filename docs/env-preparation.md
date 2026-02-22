@@ -249,7 +249,29 @@ terraform --version
 # Expected: Terraform v1.14.5
 ```
 
-2. **AWS CLI** — install from [aws.amazon.com/cli](https://aws.amazon.com/cli/)
+2. **AWS CLI** — install version 2 from [aws.amazon.com/cli](https://aws.amazon.com/cli/):
+
+```bash
+# macOS
+brew install awscli
+
+# Ubuntu/Debian
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+```
+
+```powershell
+# Windows — download and run the MSI installer:
+# https://awscli.amazonaws.com/AWSCLIV2.msi
+```
+
+Verify the installation:
+
+```bash
+aws --version
+# Expected: aws-cli/2.x.x ...
+```
 
 #### Configure AWS credentials
 
@@ -257,10 +279,52 @@ Run `aws configure` and enter your admin user's access key (created in the "Crea
 
 ```bash
 aws configure
-# AWS Access Key ID: <your-access-key-id>
-# AWS Secret Access Key: <your-secret-access-key>
-# Default region name: eu-central-1
-# Default output format: json
+```
+
+You will be prompted for four values:
+
+```
+AWS Access Key ID [None]: AKIA...
+AWS Secret Access Key [None]: wJal...
+Default region name [None]: eu-central-1
+Default output format [None]: json
+```
+
+This creates two files in your home directory:
+
+```
+~/.aws/
+ ├── config        # region and output format
+ └── credentials   # access key ID and secret key
+```
+
+```ini
+# ~/.aws/config
+[default]
+region = eu-central-1
+
+# ~/.aws/credentials
+[default]
+aws_access_key_id = AKIA...
+aws_secret_access_key = wJal...
+```
+
+> **Security note:** Never commit these files to git. The `credentials` file contains secrets and should stay on your machine only. File permissions should be `600` (read/write for owner only) — `aws configure` sets this automatically.
+
+Verify that your credentials work:
+
+```bash
+aws sts get-caller-identity
+```
+
+You should see your account ID, user ARN, and user ID:
+
+```json
+{
+    "UserId": "AIDA...",
+    "Account": "123456789012",
+    "Arn": "arn:aws:iam::123456789012:user/admin"
+}
 ```
 
 #### Initialize and apply Terraform
