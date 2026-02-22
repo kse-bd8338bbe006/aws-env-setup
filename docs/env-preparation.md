@@ -24,11 +24,10 @@ Prerequisites:
 - Bank card (use a virtual card with a low spending limit)
 - Phone number (for mobile verification)
 
-At the time of my registration, I was provided with 100 USD in credits and additional bonuses for completing activities:
+At the time of my registration, you may provided with 100 USD in credits and additional bonuses for completing activities:
 
 ![alt text](image-13.png)
 
-We are going to manage our infrastructure in AWS using Terraform and GitHub CI/CD.
 
 ### Region
 
@@ -38,7 +37,13 @@ Use the `eu-central-1` region.
 
 By default, only the root account can see billing and cost data. Regular IAM users — even those with `AdministratorAccess` — cannot view billing pages unless the root account explicitly enables it. Without this, your IAM users won't be able to see costs, set up budgets, or monitor spending.
 
-Go to account settings and enable **"IAM User and Role Access to Billing Information"**:
+To enable it:
+
+1. Sign in as the **root user** (this setting can only be changed by the root account)
+2. Navigate to **Billing Console → Account** (or use the link below)
+3. Scroll down to **"IAM User and Role Access to Billing Information"**
+4. Click **Edit**, check **"Activate IAM Access"**, and click **Update**
+
 https://us-east-1.console.aws.amazon.com/billing/home?region=eu-central-1#/account
 
 ![alt text](image-14.png)
