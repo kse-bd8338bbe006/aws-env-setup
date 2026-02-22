@@ -145,7 +145,7 @@ We use access keys in this lab for simplicity.
 
 ### Create a CI/CD user
 
-It is a good practice to separate human and machine credentials. Create a dedicated IAM user for Terraform and CI/CD named `ci-bot`:
+It is a good practice to separate human and machine credentials. Create a dedicated IAM user for Terraform and CI/CD named `cicd-bot`:
 
 ![alt text](image-21.png)
 
@@ -219,7 +219,7 @@ aws dynamodb create-table \
 
 ### Bootstrap: first Terraform run (local)
 
-The first `terraform init` and `terraform apply` must be run from your laptop. This is because the CI/CD pipeline itself depends on infrastructure that hasn't been created yet (the `ci-bot` access keys need to be stored as GitHub secrets, and those keys are a Terraform output). After the initial local run, all subsequent changes go through the GitHub Actions pipeline.
+The first `terraform init` and `terraform apply` must be run from your laptop. This is because the CI/CD pipeline itself depends on infrastructure that hasn't been created yet (the `cicd-bot` access keys need to be stored as GitHub secrets, and those keys are a Terraform output). After the initial local run, all subsequent changes go through the GitHub Actions pipeline.
 
 #### Install prerequisites
 
@@ -342,7 +342,7 @@ terraform plan
 terraform apply
 ```
 
-After a successful apply, Terraform will output the `ci-bot` access key ID. The secret key is marked as sensitive, so to reveal it run:
+After a successful apply, Terraform will output the `cicd-bot` access key ID. The secret key is marked as sensitive, so to reveal it run:
 
 ```bash
 terraform output -raw cd_user_access_key_secret
