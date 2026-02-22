@@ -134,8 +134,10 @@ sequenceDiagram
 
     Approver->>GH: Approve destruction
     Destroy->>AWS: terraform init
+    Destroy->>Destroy: terraform state rm (IAM resources)
+    Note over Destroy: Remove cicd-bot from state<br/>so destroy won't delete its own credentials
     Destroy->>AWS: terraform destroy -auto-approve
-    AWS-->>Destroy: All resources destroyed
+    AWS-->>Destroy: All resources destroyed<br/>(cicd-bot preserved)
 ```
 
 ### Network architecture
@@ -194,7 +196,6 @@ aws-env-setup/
 │   ├── network.tf                  # VPC, subnets, NAT, endpoints
 │   └── budgets.tf                  # AWS budget alarm
 ├── docs/                           # Lab documentation
-├── scripts/                        # Helper scripts
 └── .gitignore                      # Terraform state exclusions
 ```
 
@@ -207,9 +208,23 @@ aws-env-setup/
 | S3 bucket (state) | Manual | Terraform can't manage its own backend |
 | DynamoDB table (lock) | Manual | Same reason |
 | VPC, subnets, NAT, endpoints | Terraform | Core infrastructure |
-| `cicd-bot` IAM user + policies | Terraform | CI/CD credentials |
+| `cicd-bot` IAM user + policies | Terraform (`prevent_destroy`) | CI/CD credentials — removed from state before destroy to avoid deleting its own credentials |
 | Budget alarm ($50/month) | Terraform | Automated cost control |
 | GitHub environment + secrets | Manual | GitHub-side config, not AWS |
+
+### Retrieving cicd-bot credentials
+
+The `cicd-bot` IAM user and access key are managed by Terraform with `prevent_destroy` lifecycle. After `terraform apply`, retrieve the credentials:
+
+```bash
+terraform output cd_user_access_key_id
+terraform output -raw cd_user_access_key_secret
+```
+
+Add these to your GitHub repository secrets (Settings > Environments > PROD):
+- `AWS_ACCESS_KEY_ID` — access key ID
+- `AWS_SECRET_ACCESS_KEY` — secret access key
+- `AWS_REGION` (variable) — `eu-central-1`
 
 ### Safety mechanisms
 
