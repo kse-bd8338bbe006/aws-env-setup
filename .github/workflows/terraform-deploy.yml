@@ -53,7 +53,8 @@ jobs:
 
       # Validate
       - name: Terraform Validate
-        run: terraform validate        
+        run: terraform validate
+        working-directory: ./infra
 
       # Security Scan with Checkov
       - name: Run Checkov Security Scan
