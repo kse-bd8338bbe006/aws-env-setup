@@ -217,4 +217,65 @@ aws dynamodb create-table \
   --region eu-central-1
 ```
 
-After both resources are created, Terraform can be initialized with `terraform init` and will use this remote backend for state management.
+### Bootstrap: first Terraform run (local)
+
+The first `terraform init` and `terraform apply` must be run from your laptop. This is because the CI/CD pipeline itself depends on infrastructure that hasn't been created yet (the `ci-bot` access keys need to be stored as GitHub secrets, and those keys are a Terraform output). After the initial local run, all subsequent changes go through the GitHub Actions pipeline.
+
+#### Install prerequisites
+
+1. **Terraform** — install from [terraform.io](https://developer.hashicorp.com/terraform/install) or via a package manager:
+
+We use version **1.14.5** (same as in CI/CD pipeline). Install it using one of the methods below:
+
+```bash
+# macOS
+brew install terraform@1.14.5
+
+# Ubuntu/Debian
+wget https://releases.hashicorp.com/terraform/1.14.5/terraform_1.14.5_linux_amd64.zip
+unzip terraform_1.14.5_linux_amd64.zip
+sudo mv terraform /usr/local/bin/
+```
+
+```powershell
+# Windows (using Chocolatey)
+choco install terraform --version=1.14.5
+```
+
+Verify the installation:
+
+```bash
+terraform --version
+# Expected: Terraform v1.14.5
+```
+
+2. **AWS CLI** — install from [aws.amazon.com/cli](https://aws.amazon.com/cli/)
+
+#### Configure AWS credentials
+
+Run `aws configure` and enter your admin user's access key (created in the "Create an Access Key" step above):
+
+```bash
+aws configure
+# AWS Access Key ID: <your-access-key-id>
+# AWS Secret Access Key: <your-secret-access-key>
+# Default region name: eu-central-1
+# Default output format: json
+```
+
+#### Initialize and apply Terraform
+
+```bash
+cd infra
+
+# Initialize the backend (connects to S3 + DynamoDB)
+terraform init
+
+# Preview the changes
+terraform plan
+
+# Apply the infrastructure
+terraform apply
+```
+
+After a successful apply, Terraform will output the `ci-bot` access keys. Store them as GitHub repository secrets (`AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`) so the CI/CD pipeline can take over from here.
