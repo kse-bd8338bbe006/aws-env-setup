@@ -3,76 +3,76 @@
 ### High-level infrastructure diagram
 
 ```mermaid
+graph LR
+    subgraph GitHub
+        Dev[Developer] -->|PR| Actions[GitHub Actions]
+        Actions -->|credentials| Secrets[PROD Environment Secrets]
+    end
+
+    Actions -->|terraform apply| AWS
+
+    subgraph AWS["AWS (eu-central-1)"]
+        IAM["IAM\nadmin + cicd-bot"]
+        Backend["TF Backend\nS3 + DynamoDB"]
+        VPC["VPC 10.1.0.0/16\nPublic + Private Subnets"]
+        Budget["Budget $50/mo"]
+    end
+```
+
+### CI/CD and AWS components
+
+```mermaid
 graph TB
-    subgraph GitHub["GitHub"]
-        Dev[Developer] -->|push| FB[Feature Branch]
-        FB -->|open| PR[Pull Request]
-        PR -->|merge| Main[main branch]
+    subgraph GitHub["GitHub Actions"]
+        direction LR
+        PR[Pull Request] -.->|trigger| Plan
+        Main[Push to main] -.->|trigger| Apply
 
-        subgraph CI["GitHub Actions"]
-            PR -.->|trigger| Plan[Plan Job]
-            Main -.->|trigger| Apply[Apply Job]
-
-            Plan --> Validate[terraform validate]
-            Plan --> Checkov[Checkov security scan]
-            Plan --> TFPlan[terraform plan]
-            Plan --> Comment[Post plan to PR]
-
-            Apply --> TFPlan2[terraform plan -out=tfplan]
-            TFPlan2 --> Approval{PROD environment\nmanual approval}
-            Approval -->|approved| TFApply[terraform apply tfplan]
+        subgraph Plan[Plan Job]
+            Validate[terraform validate]
+            Checkov[Checkov scan]
+            TFPlan[terraform plan]
+            Comment[Post plan to PR]
         end
 
-        subgraph Secrets["PROD Environment"]
-            AWS_KEY[AWS_ACCESS_KEY_ID]
-            AWS_SECRET[AWS_SECRET_ACCESS_KEY]
-            AWS_REGION_VAR[AWS_REGION]
+        subgraph Apply[Apply Job]
+            TFPlan2[terraform plan -out=tfplan]
+            Approval{PROD approval}
+            TFApply[terraform apply]
         end
     end
 
-    TFApply -->|deploy| AWS
-
     subgraph AWS["AWS (eu-central-1)"]
-        subgraph IAM["IAM"]
-            Admin["admin (human)\nAdministratorAccess\nConsole + CLI"]
-            CICD["cicd-bot (machine)\nAdministratorAccess\n+ S3/DynamoDB policies"]
+        subgraph IAM
+            Admin["admin\n(human, console + CLI)"]
+            CICD["cicd-bot\n(machine, CI/CD)"]
         end
 
-        subgraph Backend["Terraform Backend (manual)"]
-            S3["S3: cicd-security-tf-state-1\nVersioning + AES-256"]
-            DDB["DynamoDB: cicd-security-tf-state-lock\nPartition key: LockID"]
+        subgraph Backend["TF Backend (manual)"]
+            S3[S3 state bucket]
+            DDB[DynamoDB lock table]
         end
 
         subgraph VPC["VPC: 10.1.0.0/16"]
-            subgraph Public["Public Subnets"]
-                PubA["public-a\n10.1.1.0/24\nAZ: eu-central-1a"]
-                PubB["public-b\n10.1.2.0/24\nAZ: eu-central-1b"]
-            end
-
+            PubA["public-a\n10.1.1.0/24"]
+            PubB["public-b\n10.1.2.0/24"]
             IGW[Internet Gateway]
-            NAT["NAT Gateway\n+ Elastic IP"]
-
-            subgraph Private["Private Subnets"]
-                PrivA["private-a\n10.1.10.0/24\nAZ: eu-central-1a"]
-                PrivB["private-b\n10.1.11.0/24\nAZ: eu-central-1b"]
-            end
-
-            subgraph Endpoints["VPC Endpoints"]
-                CW["CloudWatch Logs\n(Interface)"]
-                SSM["SSM Messages\n(Interface)"]
-                S3EP["S3\n(Gateway)"]
-            end
+            NAT[NAT Gateway + EIP]
+            PrivA["private-a\n10.1.10.0/24"]
+            PrivB["private-b\n10.1.11.0/24"]
         end
 
-        Budget["Budget: $50/month\nAlert at 80% forecasted"]
+        subgraph Endpoints["VPC Endpoints"]
+            CW[CloudWatch Logs]
+            SSM[SSM Messages]
+            S3EP[S3 Gateway]
+        end
+
+        Budget["Budget: $50/mo\nAlert at 80%"]
     end
 
-    PubA & PubB --> IGW
-    IGW --> Internet((Internet))
-    NAT --> IGW
-    PrivA & PrivB --> NAT
-    PrivA & PrivB --> CW & SSM & S3EP
-    CICD -.->|credentials| Secrets
+    TFApply -->|deploy| AWS
+    CICD -.->|credentials| GitHub
 ```
 
 ### CI/CD deploy workflow
@@ -120,7 +120,7 @@ sequenceDiagram
 sequenceDiagram
     actor Dev as Developer
     participant GH as GitHub
-    participant Destroy as Destroy Job
+    participant DJ as Destroy Job
     participant Approver as Reviewer
     participant AWS as AWS
 
@@ -128,16 +128,16 @@ sequenceDiagram
 
     Note over GH: Manual trigger only
 
-    GH->>Destroy: Start destroy job
+    GH->>DJ: Start destroy job
 
-    Note over Destroy,Approver: PROD environment<br/>requires manual approval
+    Note over DJ,Approver: PROD environment<br/>requires manual approval
 
     Approver->>GH: Approve destruction
-    Destroy->>AWS: terraform init
-    Destroy->>Destroy: terraform state rm (IAM resources)
-    Note over Destroy: Remove cicd-bot from state<br/>so destroy won't delete its own credentials
-    Destroy->>AWS: terraform destroy -auto-approve
-    AWS-->>Destroy: All resources destroyed<br/>(cicd-bot preserved)
+    DJ->>AWS: terraform init
+    DJ->>DJ: terraform state rm (IAM resources)
+    Note over DJ: Remove cicd-bot from state<br/>so destroy won't delete its own credentials
+    DJ->>AWS: terraform destroy -auto-approve
+    AWS-->>DJ: All resources destroyed<br/>(cicd-bot preserved)
 ```
 
 ### Network architecture
@@ -214,14 +214,18 @@ aws-env-setup/
 
 ### Retrieving cicd-bot credentials
 
-The `cicd-bot` IAM user and access key are managed by Terraform with `prevent_destroy` lifecycle. After `terraform apply`, retrieve the credentials:
+The `cicd-bot` IAM user and access key are managed by Terraform with `prevent_destroy` lifecycle. After the initial `terraform apply` (run with admin credentials), retrieve the cicd-bot credentials before configuring AWS CLI:
 
 ```bash
+# 1. Get the cicd-bot credentials from Terraform output
 terraform output cd_user_access_key_id
 terraform output -raw cd_user_access_key_secret
+
+# 2. Configure AWS CLI with the cicd-bot credentials
+aws configure
 ```
 
-Add these to your GitHub repository secrets (Settings > Environments > PROD):
+Then add the same credentials to your GitHub repository secrets (Settings > Environments > PROD):
 - `AWS_ACCESS_KEY_ID` — access key ID
 - `AWS_SECRET_ACCESS_KEY` — secret access key
 - `AWS_REGION` (variable) — `eu-central-1`
