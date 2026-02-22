@@ -342,7 +342,13 @@ terraform plan
 terraform apply
 ```
 
-After a successful apply, Terraform will output the `ci-bot` access keys. Store them as GitHub repository secrets (`AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`) so the CI/CD pipeline can take over from here.
+After a successful apply, Terraform will output the `ci-bot` access key ID. The secret key is marked as sensitive, so to reveal it run:
+
+```bash
+terraform output -raw cd_user_access_key_secret
+```
+
+Store both values as GitHub repository secrets (`AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`) so the CI/CD pipeline can take over from here.
 
 ### GitHub repository configuration
 
@@ -386,9 +392,9 @@ Go to your repository **Settings → Environments** and create a new environment
 
 ![alt text](github-repo-configuration/image-1.png)
 
-Set the following **Environment Secrets**:
-- `AWS_ACCESS_KEY_ID` — the `ci-bot` access key ID from Terraform output
-- `AWS_SECRET_ACCESS_KEY` — the `ci-bot` secret access key from Terraform output
+Set the following **Environment Secrets** (use the values from the Terraform bootstrap step):
+- `AWS_ACCESS_KEY_ID` — copy from `terraform output -raw cd_user_access_key_id`
+- `AWS_SECRET_ACCESS_KEY` — copy from `terraform output -raw cd_user_access_key_secret`
 
 Set the following **Environment Variable**:
 - `AWS_REGION` — set to `eu-central-1`
