@@ -32,6 +32,17 @@ jobs:
         run: terraform init -input=false
         working-directory: ./infra
 
+      - name: Remove IAM from state
+        working-directory: ./infra
+        run: |
+          terraform state rm aws_iam_user.cd || true
+          terraform state rm aws_iam_access_key.cd || true
+          terraform state rm aws_iam_policy.tf_s3_backend || true
+          terraform state rm aws_iam_policy.tf_dynamodb_backend || true
+          terraform state rm aws_iam_user_policy_attachment.tf_s3_backend || true
+          terraform state rm aws_iam_user_policy_attachment.tf_dynamodb_backend || true
+          terraform state rm aws_iam_user_policy_attachment.admin_access || true
+
       - name: Terraform Destroy
         run: terraform destroy -auto-approve
         working-directory: ./infra
