@@ -125,14 +125,14 @@ The simplest workflow automatically performs apply right after plan, the steps l
 
 Thist is not convient and not corrected parametera can be applied. More sophisticated approaches requires review be fore applying. 
 Also there are application like `Atlantis` that helps to manage PRs.
-https://github.com/TorinKS/CICD-security-course/actions/runs/19733892873/job/56541111754
+https://github.com/kse-bd8338bbe006/aws-env-setup/actions/runs/19733892873/job/56541111754
 
 We are going to keep things simple so we just will use Github environments for deploy to prod that forces manual review before deploying.
 
 For this we need two jobs:
 - plan 
 - apply
-See - https://github.com/TorinKS/CICD-security-course/blob/main/.github/workflows/terraform.yml
+See - https://github.com/kse-bd8338bbe006/aws-env-setup/blob/main/.github/workflows/terraform.yml
 
 And now we need to configure protection rules. Check this documentation for details: https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/configure-custom-protection-rules#enabling-custom-deployment-protection-rules-for-the-environment
 
@@ -159,10 +159,10 @@ But other option which is prefferable is:
 - after all checks are finished and feature branch is merge into main, only then run terraform apply.
 
 To configure this, go to branches:
-https://github.com/TorinKS/CICD-security-course/settings/branches
+https://github.com/kse-bd8338bbe006/aws-env-setup/settings/branches
 
 and classic Branch Protection Rule:
-https://github.com/TorinKS/CICD-security-course/settings/branch_protection_rules/new
+https://github.com/kse-bd8338bbe006/aws-env-setup/settings/branch_protection_rules/new
 
 
 TODO: remove
