@@ -122,8 +122,8 @@ Looking at your setup, you should have:
 
 Manually created (outside Terraform):
 
-S3 bucket: cicd-security-course-terraform-state
-DynamoDB table: cicd-security-course-terraform-locks
+S3 bucket: cicd-security-tf-state-1 (S3 bucket names are globally unique across all AWS accounts — choose your own unique name)
+DynamoDB table: cicd-security-tf-state-lock
 Managed by Terraform (can be destroyed/recreated):
 
 VPC, Subnets, Internet Gateway, NAT Gateway

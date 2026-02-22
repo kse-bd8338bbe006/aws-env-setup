@@ -205,7 +205,7 @@ aws-env-setup/
 |---|---|---|
 | AWS account, root user | Manual | One-time setup |
 | `admin` IAM user + Administrators group | Manual | Needed before Terraform can run |
-| S3 bucket (state) | Manual | Terraform can't manage its own backend |
+| S3 bucket (state) | Manual | Terraform can't manage its own backend. S3 bucket names are globally unique — choose your own name |
 | DynamoDB table (lock) | Manual | Same reason |
 | VPC, subnets, NAT, endpoints | Terraform | Core infrastructure |
 | `cicd-bot` IAM user + policies | Terraform (`prevent_destroy`) | CI/CD credentials — removed from state before destroy to avoid deleting its own credentials |
