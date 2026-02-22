@@ -38,9 +38,7 @@ resource "aws_subnet" "public_a" {
   availability_zone       = "${data.aws_region.current.name}a"
 
   tags = {
-    Name                                        = "${local.prefix}-public-a"
-    "kubernetes.io/role/elb"                    = "1"
-    "kubernetes.io/cluster/${local.prefix}-eks-cluster" = "shared"
+    Name = "${local.prefix}-public-a"
   }
 }
 
@@ -71,9 +69,7 @@ resource "aws_subnet" "public_b" {
   availability_zone       = "${data.aws_region.current.name}b"
 
   tags = {
-    Name                                        = "${local.prefix}-public-b"
-    "kubernetes.io/role/elb"                    = "1"
-    "kubernetes.io/cluster/${local.prefix}-eks-cluster" = "shared"
+    Name = "${local.prefix}-public-b"
   }
 }
 
@@ -104,9 +100,7 @@ resource "aws_subnet" "private_a" {
   availability_zone = "${data.aws_region.current.name}a"
 
   tags = {
-    Name                                        = "${local.prefix}-private-a"
-    "kubernetes.io/role/internal-elb"           = "1"
-    "kubernetes.io/cluster/${local.prefix}-eks-cluster" = "shared"
+    Name = "${local.prefix}-private-a"
   }
 }
 
@@ -116,9 +110,7 @@ resource "aws_subnet" "private_b" {
   availability_zone = "${data.aws_region.current.name}b"
 
   tags = {
-    Name                                        = "${local.prefix}-private-b"
-    "kubernetes.io/role/internal-elb"           = "1"
-    "kubernetes.io/cluster/${local.prefix}-eks-cluster" = "shared"
+    Name = "${local.prefix}-private-b"
   }
 }
 ## Endpoints to allow access to CloudWatch / Systems Manager / S3 from private network

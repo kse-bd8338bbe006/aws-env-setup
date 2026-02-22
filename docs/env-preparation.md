@@ -47,17 +47,13 @@ https://us-east-1.console.aws.amazon.com/billing/home?region=eu-central-1#/accou
 
 ![alt text](image-14.png)
 
-### IAM vs IAM Identity Center
-
-IAM Identity Center is the modern, recommended solution for managing user access in AWS. It supports SSO and integrates with external identity providers. However, for this lab we use classic IAM to keep things simple.
-
 ### Create a regular user
 
-The root user has unrestricted access to everything in your AWS account, including billing, account closure, and all services. AWS best practice is to use the root account only for tasks that specifically require it (like enabling billing access above) and create a regular IAM user for day-to-day work. This way you can enforce least-privilege permissions, rotate credentials, and revoke access if needed — while keeping the root account locked away for rare account-level operations.
+The root user has unrestricted access to everything in your AWS account. AWS best practice is to use it only for tasks that require it (like enabling billing access above) and create a regular IAM user for day-to-day work. This way you can rotate credentials and revoke access if needed, while keeping the root account locked away.
+
+> **Note:** AWS also offers **IAM Identity Center** — a modern solution with SSO and external identity provider support. However, it may require creating an AWS Organization, which complicates a free-tier setup. We use classic IAM in this lab to keep things simple.
 
 Go to IAM in AWS and create a new user.
-
-> **Note:** There is the newer IAM Identity Center, but it may require upgrading from a free-tier account since it creates an AWS Organization. We use classic IAM in this lab.
 
 ![alt text](image-15.png)
 
@@ -67,6 +63,7 @@ https://894120233078.signin.aws.amazon.com/console
 Add this URL to your browser bookmarks.
 
 ### Create an Administrators group
+
 Now go to groups and create an Administrators group:
 https://us-east-1.console.aws.amazon.com/iam/home?region=eu-central-1#/groups/create
 
@@ -125,20 +122,22 @@ aws iam create-access-key --user-name john
 
 ### Create an Access Key
 
-The last step for user configuration is to create an Access Key:
+The last step for user configuration is to create an Access Key. This key will be used for programmatic access (CLI, Terraform, CI/CD).
+
+Go to the user's Security Credentials tab and click "Create access key":
 https://us-east-1.console.aws.amazon.com/iam/home?region=eu-central-1#/users/details/admin/create-access-key
 
-Note that there are two other recommended alternatives to access keys:
+<details>
+<summary>Alternatives to access keys (click to expand)</summary>
 
+There are other recommended approaches for authentication:
 - **AWS CLI V2 with `aws login`** — use your existing console credentials in the CLI. [Documentation](https://docs.aws.amazon.com/cli/latest/userguide/cli-authentication-user.html)
 - **AWS CloudShell** — a browser-based CLI to run commands. [Learn more](https://docs.aws.amazon.com/singlesignon/latest/userguide/identity-center-prerequisites.html?icmpid=docs_sso_console)
+- **User federation** via external identity providers (Keycloak, AD FS, etc.) — common in companies. [Documentation](https://docs.aws.amazon.com/cli/latest/userguide/cli-authentication-user.html)
 
-Another recommended approach is to federate users via an external identity provider ([documentation](https://docs.aws.amazon.com/cli/latest/userguide/cli-authentication-user.html)). This is common in companies that already have their own identity providers:
-- Keycloak
-- AD FS
-- etc.
+We use access keys in this lab for simplicity.
 
-We are not going to use any of these approaches. We keep things simple and create an access key for use in CI/CD:
+</details>
 
 ![alt text](image-19.png)
 
@@ -146,7 +145,7 @@ We are not going to use any of these approaches. We keep things simple and creat
 
 ### Create a CI/CD user
 
-You also need to create a separate IAM user for Terraform and CI named `ci-bot`:
+It is a good practice to separate human and machine credentials. Create a dedicated IAM user for Terraform and CI/CD named `ci-bot`:
 
 ![alt text](image-21.png)
 
