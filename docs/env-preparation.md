@@ -429,6 +429,50 @@ However, this skips the review step — incorrect changes can be applied without
 
 We use **GitHub environment protection rules** to require manual approval before the apply job runs.
 
+#### Why we use `-out=tfplan`
+
+Terraform `plan` and `apply` are two separate steps. If you run them without a saved plan file, Terraform re-evaluates the state during `apply` — and the infrastructure could have changed between the two steps (e.g., someone made a manual change in the console, or another pipeline ran).
+
+By using `-out=tfplan`, Terraform saves the exact execution plan to a file. When you run `apply tfplan`, it applies **exactly** what was planned — no re-evaluation, no surprises:
+
+```bash
+# Save the plan to a file
+terraform plan -input=false -out=tfplan
+
+# Apply exactly what was planned
+terraform apply -input=false tfplan
+```
+
+> **Note:** The plan file from the PR and the plan executed on merge are still separate workflow runs. The state could theoretically change between PR approval and merge. For production setups, dedicated Terraform automation tools solve this problem (see below).
+
+#### Concurrency control
+
+If two PRs merge in quick succession, GitHub Actions could run two `terraform apply` jobs at the same time. Terraform's DynamoDB state locking will prevent actual corruption, but one of the runs will fail with a lock error and need to be re-triggered manually.
+
+To avoid this, we add a `concurrency` block to the workflow:
+
+```yaml
+concurrency:
+  group: terraform-deploy
+  cancel-in-progress: false
+```
+
+This queues workflow runs instead of running them in parallel. The `cancel-in-progress: false` setting is important — we don't want a new merge to cancel an in-progress apply, which could leave infrastructure in a partially applied state.
+
+#### Terraform automation tools
+
+Our GitHub Actions workflow is a good starting point, but it has a gap: the plan shown on the PR and the plan executed after merge are separate runs. In production, teams often use dedicated tools that provide tighter control over the plan-apply lifecycle:
+
+- **[Atlantis](https://www.runatlantis.io/)** — self-hosted server that listens for PR webhooks, runs `plan` automatically, posts the output as a PR comment, and locks the state until the PR is merged or closed. You apply by commenting `atlantis apply` on the PR. Free and open-source, but you need to host it yourself.
+
+- **[Spacelift](https://spacelift.io/)** — managed platform with policy-as-code (Open Policy Agent), drift detection, and resource-level approval. Has a free tier for small teams.
+
+- **[Terraform Cloud / HCP Terraform](https://www.hashicorp.com/products/terraform)** — HashiCorp's managed service with remote plan/apply, cost estimation, Sentinel policy enforcement, and a private module registry. Free for up to 500 managed resources.
+
+- **[env0](https://www.env0.com/)** — managed platform focused on cost visibility, RBAC, and self-service environments. Supports Terraform, OpenTofu, Pulumi, and others.
+
+These tools share a common pattern: plan on PR, lock state, apply from PR context (not from a separate merge event). This eliminates the drift window entirely. For our lab, the GitHub Actions workflow with environment protection rules is sufficient.
+
 #### Configure environment protection rules
 
 > **Note:** Your repository must have **Public** access for environment protection rules to work on free GitHub plans.
