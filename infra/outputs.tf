@@ -8,3 +8,8 @@ output "cd_user_access_key_secret" {
   value       = aws_iam_access_key.cd.secret
   sensitive   = true
 }
+
+output "web_public_ip" {
+  description = "Public IP of the web server"
+  value       = aws_instance.web.public_ip
+}
