@@ -156,3 +156,65 @@ Add it to the Administrators group:
 ### Create a budget in AWS
 
 The last step is to set up a billing budget to avoid unexpected charges. You can follow [this guide](https://www.udemy.com/course/devops-deployment-automation-terraform-aws-docker/learn/lecture/43769728#notes) or configure it directly in the AWS Billing console under Budgets.
+
+
+### Configure S3 bucket and DynamoDB
+
+Terraform needs a place to store its **state file** — a record of all resources it manages. By default, Terraform stores state locally, but this does not work for team collaboration or CI/CD pipelines. We use a remote backend with:
+
+- **S3 bucket** — stores the Terraform state file (encrypted at rest)
+- **DynamoDB table** — provides state locking to prevent concurrent modifications
+
+We create these resources manually (not via Terraform) because Terraform cannot manage its own backend — it needs the bucket and table to already exist before it can initialize.
+
+#### Create the S3 bucket
+
+1. Go to the [S3 Console](https://s3.console.aws.amazon.com/s3/home?region=eu-central-1)
+2. Click **Create bucket**
+3. Bucket name: `cicd-security-tf-state-1` (must be globally unique — adjust if taken)
+4. Region: `eu-central-1`
+5. Enable **Bucket Versioning** (allows recovering previous state versions)
+6. Enable **Server-side encryption** (SSE-S3)
+7. **Block all public access** — leave this enabled (default)
+8. Click **Create bucket**
+
+Or via the AWS CLI:
+
+```bash
+aws s3api create-bucket \
+  --bucket cicd-security-tf-state-1 \
+  --region eu-central-1 \
+  --create-bucket-configuration LocationConstraint=eu-central-1
+
+aws s3api put-bucket-versioning \
+  --bucket cicd-security-tf-state-1 \
+  --versioning-configuration Status=Enabled
+
+aws s3api put-bucket-encryption \
+  --bucket cicd-security-tf-state-1 \
+  --server-side-encryption-configuration '{
+    "Rules": [{"ApplyServerSideEncryptionByDefault": {"SSEAlgorithm": "AES256"}}]
+  }'
+```
+
+#### Create the DynamoDB table
+
+1. Go to the [DynamoDB Console](https://eu-central-1.console.aws.amazon.com/dynamodbv2/home?region=eu-central-1#tables)
+2. Click **Create table**
+3. Table name: `cicd-security-tf-state-lock`
+4. Partition key: `LockID` (type: String)
+5. Leave all other settings as default
+6. Click **Create table**
+
+Or via the AWS CLI:
+
+```bash
+aws dynamodb create-table \
+  --table-name cicd-security-tf-state-lock \
+  --attribute-definitions AttributeName=LockID,AttributeType=S \
+  --key-schema AttributeName=LockID,KeyType=HASH \
+  --billing-mode PAY_PER_REQUEST \
+  --region eu-central-1
+```
+
+After both resources are created, Terraform can be initialized with `terraform init` and will use this remote backend for state management.
