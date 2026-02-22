@@ -279,3 +279,115 @@ terraform apply
 ```
 
 After a successful apply, Terraform will output the `ci-bot` access keys. Store them as GitHub repository secrets (`AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`) so the CI/CD pipeline can take over from here.
+
+### GitHub repository configuration
+
+#### Branching strategy
+
+We use **GitHub Flow** — a simple trunk-based strategy where `main` is always the source of truth:
+
+1. Create a short-lived feature branch from `main`
+2. Make changes and open a PR
+3. CI runs `terraform plan` automatically
+4. Review the plan and merge to `main`
+5. CI runs `terraform apply` on merge
+
+```
+main
+ ├── feature/vpc-hardening
+ ├── feature/security-groups-refactor
+ └── fix/ecs-task-role
+```
+
+All infrastructure lives in a single **monorepo**. Each environment or component gets its own directory with an independent Terraform state, but they share modules and go through the same PR review process:
+
+```
+infrastructure/
+ ├── modules/          # reusable Terraform modules
+ │   ├── vpc/
+ │   └── ecs/
+ ├── prod/             # production root module
+ │   ├── main.tf
+ │   └── backend.tf
+ └── dev/              # development root module (add later)
+     ├── main.tf
+     └── backend.tf
+```
+
+This approach keeps things simple — no long-lived environment branches that drift apart, no complex promotion pipelines. Adding a new environment is just adding a new directory, not a new branch.
+
+#### Create a PROD environment in GitHub
+
+Go to your repository **Settings → Environments** and create a new environment named `PROD`:
+
+![alt text](github-repo-configuration/image-1.png)
+
+Set the following **Environment Secrets**:
+- `AWS_ACCESS_KEY_ID` — the `ci-bot` access key ID from Terraform output
+- `AWS_SECRET_ACCESS_KEY` — the `ci-bot` secret access key from Terraform output
+
+Set the following **Environment Variable**:
+- `AWS_REGION` — set to `eu-central-1`
+
+![alt text](github-repo-configuration/image.png)
+
+#### GitHub Actions workflow
+
+Our CI/CD pipeline has two separate jobs:
+
+- **plan** — runs on PR creation, shows what Terraform will change
+- **apply** — runs on merge to `main`, deploys to production
+
+A simpler approach is to run plan and apply in a single job:
+
+```yaml
+      # Plan
+      - name: Terraform Plan
+        run: terraform plan -input=false -out=tfplan
+        working-directory: ./infra
+
+      # Apply (proceed only on main)
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main'
+        run: terraform apply -input=false -auto-approve tfplan
+        working-directory: ./infra
+```
+
+![alt text](github-repo-configuration/image-3.png)
+
+However, this skips the review step — incorrect changes can be applied without anyone checking the plan first. More sophisticated approaches require manual review before applying. Tools like [Atlantis](https://www.runatlantis.io/) can also help manage this for PRs.
+
+We use **GitHub environment protection rules** to require manual approval before the apply job runs.
+
+#### Configure environment protection rules
+
+> **Note:** Your repository must have **Public** access for environment protection rules to work on free GitHub plans.
+
+Go to **Settings → Environments → PROD** and enable deployment protection rules:
+
+![alt text](github-repo-configuration/image-4.png)
+
+Now when the pipeline runs, you will see that approval is required before the apply job:
+
+![alt text](github-repo-configuration/image-5.png)
+
+Review the plan output first:
+
+![alt text](github-repo-configuration/image-7.png)
+
+Then approve the apply job:
+
+![alt text](github-repo-configuration/image-6.png)
+
+For more details, see the [GitHub documentation on environment protection rules](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/configure-custom-protection-rules).
+
+#### Protect the main branch
+
+Disable direct pushes to `main` so that all changes go through pull requests with CI checks.
+
+Go to **Settings → Branches** and add a branch protection rule for `main`:
+
+![alt text](github-repo-configuration/image-2.png)
+
+This ensures that security scans and `terraform plan` must pass before changes can be merged.
+
