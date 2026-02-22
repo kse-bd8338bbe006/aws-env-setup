@@ -54,6 +54,8 @@ IAM Identity Center is the modern, recommended solution for managing user access
 
 ### Create a regular user
 
+The root user has unrestricted access to everything in your AWS account, including billing, account closure, and all services. AWS best practice is to use the root account only for tasks that specifically require it (like enabling billing access above) and create a regular IAM user for day-to-day work. This way you can enforce least-privilege permissions, rotate credentials, and revoke access if needed — while keeping the root account locked away for rare account-level operations.
+
 Go to IAM in AWS and create a new user.
 
 > **Note:** There is the newer IAM Identity Center, but it may require upgrading from a free-tier account since it creates an AWS Organization. We use classic IAM in this lab.
