@@ -1,0 +1,13 @@
+metadata:
+  id: "CUSTOM_GRAPH_3"
+  name: "Ensure ALB listener forwards to a target group"
+  category: "NETWORKING"
+
+definition:
+  and:
+    - cond_type: "connection"
+      resource_types:
+        - "aws_lb_listener"
+      connected_resource_types:
+        - "aws_lb_target_group"
+      operator: "exists"
