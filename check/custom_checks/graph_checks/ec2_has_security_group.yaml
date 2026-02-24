@@ -1,0 +1,11 @@
+metadata:
+  id: "CUSTOM_GRAPH_4"
+  name: "Ensure EC2 instance has a VPC security group assigned"
+  category: "NETWORKING"
+
+definition:
+  cond_type: "attribute"
+  resource_types:
+    - "aws_instance"
+  attribute: "vpc_security_group_ids"
+  operator: "is_not_empty"

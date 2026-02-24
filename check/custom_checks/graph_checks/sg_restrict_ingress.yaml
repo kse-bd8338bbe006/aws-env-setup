@@ -1,0 +1,13 @@
+metadata:
+  id: "CUSTOM_GRAPH_2"
+  name: "Ensure security group does not allow unrestricted ingress to port 22 (SSH)"
+  category: "NETWORKING"
+  severity: "HIGH"
+
+definition:
+  cond_type: "attribute"
+  resource_types:
+    - "aws_security_group"
+  attribute: "ingress.from_port"
+  operator: "not_equals"
+  value: 22
