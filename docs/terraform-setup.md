@@ -1,42 +1,50 @@
-The best practice is to keep as much configuragion in the code as possible. But initially some configuration is created manually like bot with name ci-bot that is goign to be used in our CI
+# Terraform Backend Setup
 
-For terraform we are needed backend resources:
+Infrastructure as Code best practice is to keep as much configuration in code as possible. However, some resources must be created manually before Terraform can manage the rest — specifically the **backend resources** that store Terraform state.
 
-s3 bucket
-dynamodb
-so go to s3 bucket resources: https://eu-central-1.console.aws.amazon.com/s3/get-started?region=eu-central-1
+## Prerequisites
 
-and click on "Create butcket"
+- AWS account with permissions to create S3 buckets and DynamoDB tables
+- A CI bot user (e.g. `ci-bot`) for use in CI/CD pipelines
 
-I give the name for the bucket: cicd-security-tf-state-1 Your name have to be unique because bucket names are unique across all of s3
+## 1. Create an S3 Bucket for Terraform State
 
-Choose parameters:
-![alt text](image.png)
+The S3 bucket stores the Terraform state file, allowing anyone who runs Terraform to work against the same state.
 
-### Enable bucket versioning
-![alt text](image-1.png)
+1. Open the [S3 console](https://eu-central-1.console.aws.amazon.com/s3/get-started?region=eu-central-1)
+2. Click **Create bucket**
+3. Enter a bucket name (e.g. `cicd-security-tf-state-1`)
+   > Bucket names must be globally unique across all of S3.
 
-so we could revert back to the previous verions of terraform state
+4. Configure the bucket settings:
 
-Leave all these stuff by default:
-![alt text](image-2.png)
+   ![Bucket configuration](image.png)
 
-and click "Create bucket"
-![alt text](image-3.png)
+5. **Enable Bucket Versioning** — this allows you to revert to a previous version of the Terraform state if needed:
 
-In s3 bucket we are going to keep terraform state that will be used by anyone who exeute terraform code
+   ![Enable versioning](image-1.png)
 
-terraform state locking in DynamoDB
-After this we have to create DynamoDB table. If more that one will try to run terraform at the same time, make changes at the same time, this can create confilct and cause issues thus we create lock id, to terraform state locking fetaure using. That dynamodb will be used by terrform to track when somecan makes change to infra
+6. Leave all remaining settings at their defaults:
 
-I gave the name to dynamodb cicd-security-tf-state-lock
+   ![Default settings](image-2.png)
 
-and partition key, configure the value: LockID
+7. Click **Create bucket**:
 
-keep all other settings by default and click on "Creae table"
+   ![Create bucket](image-3.png)
 
-![alt text](image-4.png)
+## 2. Create a DynamoDB Table for State Locking
 
-Terraform structure
-Maximize infra as IaC Least manually create infra as possible
+DynamoDB provides state locking so that only one person or process can modify the infrastructure at a time. Without locking, concurrent Terraform runs could create conflicts and corrupt the state.
 
+1. Open the DynamoDB console
+2. Click **Create table**
+3. Set the table name (e.g. `cicd-security-tf-state-lock`)
+4. Set the **Partition key** to `LockID` (type: String)
+5. Leave all other settings at their defaults
+6. Click **Create table**
+
+   ![DynamoDB table](image-4.png)
+
+## Terraform Project Structure
+
+The goal is to maximize infrastructure as code — create as little as possible manually.

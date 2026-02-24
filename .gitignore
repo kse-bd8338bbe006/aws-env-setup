@@ -9,7 +9,7 @@ crash.log
 *.tfstate.backup
 *.tfstate.*.backup
 .terraform/
-.terraform.lock.hcl
+# this file should be always added to git history: .terraform.lock.hcl
 
 # Terraform variables (may contain secrets)
 *.tfvars
@@ -24,4 +24,4 @@ override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
-.terraform.lock.hcl
+# .terraform.lock.hcl

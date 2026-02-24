@@ -147,9 +147,15 @@ We use access keys in this lab for simplicity.
 
 It is a good practice to separate human and machine credentials. Create a dedicated IAM user for Terraform and CI/CD named `cicd-bot`:
 
-![alt text](image-21.png)
+1. Open the [IAM Users console](https://console.aws.amazon.com/iam/home#/users)
+2. Click **Create user**
+3. Enter the user name: `cicd-bot`
+4. Do **not** enable console access (this is a machine user)
+5. Click **Next**
 
-Add it to the Administrators group:
+
+
+On the **Set permissions** step, select **Add user to group** and check the **Administrators** group:
 
 ![alt text](image-22.png)
 
