@@ -20,49 +20,14 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  plan:
+  checkov:
     runs-on: ubuntu-latest
-    environment: PROD
     if: github.event_name == 'pull_request'
-    
+
     steps:
-      # Checkout repository
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      # Configure AWS credentials
-      - name: Configure AWS
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ vars.AWS_REGION }}
-
-      # Cache Terraform plugin directory (faster CI)
-      - name: Cache TF plugins
-        uses: actions/cache@v4
-        with:
-          path: ~/.terraform.d/plugin-cache
-          key: terraform-${{ runner.os }}-${{ hashFiles('infra/**/*.tf') }}
-
-      # Install Terraform
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.14.5
-
-
-      # Init
-      - name: Terraform Init
-        run: terraform init -input=false
-        working-directory: ./infra
-
-      # Validate
-      - name: Terraform Validate
-        run: terraform validate
-        working-directory: ./infra
-
-      # Security Scan with Checkov
       - name: Run Checkov Security Scan
         uses: bridgecrewio/checkov-action@v12
         with:
@@ -70,7 +35,6 @@ jobs:
           framework: terraform
           output_format: sarif
           output_file_path: checkov-results.sarif
-        continue-on-error: true
 
       - name: Upload Checkov results to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
@@ -78,13 +42,46 @@ jobs:
         with:
           sarif_file: checkov-results.sarif
 
-      # Plan
+  plan:
+    runs-on: ubuntu-latest
+    environment: PROD
+    if: github.event_name == 'pull_request'
+    
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Cache TF plugins
+        uses: actions/cache@v4
+        with:
+          path: ~/.terraform.d/plugin-cache
+          key: terraform-${{ runner.os }}-${{ hashFiles('infra/**/*.tf') }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.14.5
+
+      - name: Terraform Init
+        run: terraform init -input=false
+        working-directory: ./infra
+
+      - name: Terraform Validate
+        run: terraform validate
+        working-directory: ./infra
+
       - name: Terraform Plan
         id: plan
         run: terraform plan -input=false -out=tfplan -no-color
         working-directory: ./infra
 
-      # Post plan to PR
       - name: Add Plan to PR
         if: github.event_name == 'pull_request'
         uses: marocchino/sticky-pull-request-comment@v2
@@ -101,11 +98,9 @@ jobs:
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     
     steps:
-      # Checkout repository
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      # Configure AWS credentials
       - name: Configure AWS
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -113,18 +108,15 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ vars.AWS_REGION }}
 
-      # Install Terraform
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.14.5
 
-      # Init
       - name: Terraform Init
         run: terraform init -input=false
         working-directory: ./infra
 
-      # Security Scan with Checkov
       - name: Run Checkov Security Scan
         uses: bridgecrewio/checkov-action@v12
         with:
@@ -140,12 +132,10 @@ jobs:
         with:
           sarif_file: checkov-results.sarif
 
-      # Plan
       - name: Terraform Plan
         run: terraform plan -input=false -out=tfplan
         working-directory: ./infra
 
-      # Apply the saved plan (guarantees what was reviewed is what gets applied)
       - name: Terraform Apply
         run: terraform apply -input=false tfplan
         working-directory: ./infra
