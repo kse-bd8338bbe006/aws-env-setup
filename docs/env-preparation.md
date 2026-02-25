@@ -103,19 +103,19 @@ aws iam attach-group-policy \
   --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
 
 # Create user with console access
-aws iam create-user --user-name john
+aws iam create-user --user-name admin
 aws iam create-login-profile \
-  --user-name john \
+  --user-name admin \
   --password "StrongPassword123!" \
   --password-reset-required
 
 # Add user to group
 aws iam add-user-to-group \
-  --user-name john \
+  --user-name admin \
   --group-name Administrators
 
 # Create access key for programmatic use
-aws iam create-access-key --user-name john
+aws iam create-access-key --user-name admin
 ```
 
 </details>
@@ -348,13 +348,9 @@ terraform plan
 terraform apply
 ```
 
-After a successful apply, Terraform will output the `cicd-bot` access key ID. The secret key is marked as sensitive, so to reveal it run:
+After a successful apply, Terraform will output the ALB DNS name. You can access the web server at that URL.
 
-```bash
-terraform output -raw cd_user_access_key_secret
-```
-
-Store both values as GitHub repository secrets (`AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`) so the CI/CD pipeline can take over from here.
+To set up the CI/CD pipeline, create the `cicd-bot` IAM user using the setup script (see the architecture document for details), then store the credentials as GitHub repository secrets (`AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`).
 
 ### GitHub repository configuration
 
@@ -372,7 +368,7 @@ We use **GitHub Flow** — a simple trunk-based strategy where `main` is always 
 main
  ├── feature/vpc-hardening
  ├── feature/security-groups-refactor
- └── fix/ecs-task-role
+ └── fix/sg-ingress-rule
 ```
 
 All infrastructure lives in a single repository with a flat structure — one Terraform root module under `infra/`:
@@ -386,15 +382,36 @@ aws-env-setup/
 ├── infra/                          # Terraform root module
 │   ├── main.tf                     # Provider, backend, locals
 │   ├── variables.tf                # Input variables
-│   ├── outputs.tf                  # cicd-bot access keys
-│   ├── iam.tf                      # cicd-bot user + policies
+│   ├── outputs.tf                  # ALB DNS name output
+│   ├── ec2.tf                      # EC2, ALB, security groups
+│   ├── iam.tf                      # IAM role + instance profile for SSM
 │   ├── network.tf                  # VPC, subnets, NAT, endpoints
 │   └── budgets.tf                  # AWS budget alarm
+├── check/                          # Custom Checkov policies
+│   ├── check.sh                    # Runner script
+│   └── custom_checks/              # Python + YAML policies
+├── scripts/
+│   └── setup-cicd-bot.sh           # One-time cicd-bot IAM setup
 ├── docs/                           # Lab documentation
 └── .gitignore                      # Terraform state exclusions
 ```
 
 This approach keeps things simple — all changes go through PRs, and a single `infra/` directory holds the complete environment.
+
+#### What is managed manually vs. by Terraform
+
+| Resource | Managed by | Why |
+|---|---|---|
+| AWS account, root user | Manual | One-time setup |
+| `admin` IAM user + Administrators group | Manual | Needed before Terraform can run |
+| S3 bucket (state) | Manual | Terraform can't manage its own backend. S3 bucket names are globally unique — choose your own name |
+| DynamoDB table (lock) | Manual | Same reason |
+| VPC, subnets, NAT, endpoints | Terraform | Core infrastructure |
+| ALB + EC2 instance (Nginx) | Terraform | Web server in private subnet behind ALB |
+| IAM role + instance profile (SSM) | Terraform | EC2 access via SSM Session Manager |
+| `cicd-bot` IAM user + policies | Manual (`scripts/setup-cicd-bot.sh`) | CI/CD credentials — managed outside Terraform to avoid circular dependency |
+| Budget alarm ($50/month) | Terraform | Automated cost control |
+| GitHub environment + secrets | Manual | GitHub-side config, not AWS |
 
 #### Create a PROD environment in GitHub
 
@@ -402,9 +419,9 @@ Go to your repository **Settings → Environments** and create a new environment
 
 ![alt text](github-repo-configuration/image-1.png)
 
-Set the following **Environment Secrets** (use the values from the Terraform bootstrap step):
-- `AWS_ACCESS_KEY_ID` — copy from `terraform output -raw cd_user_access_key_id`
-- `AWS_SECRET_ACCESS_KEY` — copy from `terraform output -raw cd_user_access_key_secret`
+Set the following **Environment Secrets** (use the `cicd-bot` credentials from the setup script):
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
 
 Set the following **Environment Variable**:
 - `AWS_REGION` — set to `eu-central-1`
@@ -413,10 +430,11 @@ Set the following **Environment Variable**:
 
 #### GitHub Actions workflow
 
-Our CI/CD pipeline has two separate jobs:
+Our CI/CD pipeline has three separate jobs:
 
+- **checkov** — runs on PR creation, performs Checkov security scan with SARIF upload to GitHub Security tab
 - **plan** — runs on PR creation, shows what Terraform will change
-- **apply** — runs on merge to `main`, deploys to production
+- **apply** — runs on merge to `main` (or manual dispatch), deploys to production
 
 A simpler approach is to run plan and apply in a single job:
 
