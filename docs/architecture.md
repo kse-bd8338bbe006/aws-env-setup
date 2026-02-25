@@ -36,6 +36,7 @@ graph TB
 
         subgraph Plan[Plan Job]
             Validate[terraform validate]
+            Checkov[Checkov scan + SARIF upload]
             TFPlan[terraform plan]
             Comment[Post plan to PR]
         end
@@ -107,6 +108,7 @@ sequenceDiagram
     GH->>Plan: Start plan job
     Plan->>AWS: terraform init (S3 backend)
     Plan->>Plan: terraform validate
+    Plan->>Plan: Checkov scan + SARIF upload
     Plan->>AWS: terraform plan
     Plan->>GH: Post plan as PR comment
 
@@ -121,6 +123,7 @@ sequenceDiagram
     GH->>Apply: Start apply job
     Apply->>Apply: Checkov scan + SARIF upload
     Apply->>AWS: terraform init
+    Apply->>Apply: Checkov scan + SARIF upload
     Apply->>AWS: terraform plan -out=tfplan
     Apply->>AWS: terraform apply tfplan
     AWS-->>Apply: Resources created/updated

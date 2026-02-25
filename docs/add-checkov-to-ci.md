@@ -83,6 +83,22 @@ jobs:
         run: terraform validate
         working-directory: ./infra
 
+      # Security Scan with Checkov
+      - name: Run Checkov Security Scan
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: infra
+          framework: terraform
+          output_format: sarif
+          output_file_path: checkov-results.sarif
+        continue-on-error: false
+
+      - name: Upload Checkov results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: checkov-results.sarif
+
       - name: Terraform Plan
         id: plan
         run: terraform plan -input=false -out=tfplan -no-color
@@ -123,6 +139,7 @@ jobs:
         run: terraform init -input=false
         working-directory: ./infra
 
+      # Security Scan with Checkov
       - name: Run Checkov Security Scan
         uses: bridgecrewio/checkov-action@v12
         with:
