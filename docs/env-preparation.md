@@ -103,19 +103,19 @@ aws iam attach-group-policy \
   --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
 
 # Create user with console access
-aws iam create-user --user-name john
+aws iam create-user --user-name admin
 aws iam create-login-profile \
-  --user-name john \
+  --user-name admin \
   --password "StrongPassword123!" \
   --password-reset-required
 
 # Add user to group
 aws iam add-user-to-group \
-  --user-name john \
+  --user-name admin \
   --group-name Administrators
 
 # Create access key for programmatic use
-aws iam create-access-key --user-name john
+aws iam create-access-key --user-name admin
 ```
 
 </details>
@@ -386,15 +386,36 @@ aws-env-setup/
 ├── infra/                          # Terraform root module
 │   ├── main.tf                     # Provider, backend, locals
 │   ├── variables.tf                # Input variables
-│   ├── outputs.tf                  # cicd-bot access keys
-│   ├── iam.tf                      # cicd-bot user + policies
+│   ├── outputs.tf                  # ALB DNS name output
+│   ├── ec2.tf                      # EC2, ALB, security groups
+│   ├── iam.tf                      # IAM role + instance profile for SSM
 │   ├── network.tf                  # VPC, subnets, NAT, endpoints
 │   └── budgets.tf                  # AWS budget alarm
+├── check/                          # Custom Checkov policies
+│   ├── check.sh                    # Runner script
+│   └── custom_checks/              # Python + YAML policies
+├── scripts/
+│   └── setup-cicd-bot.sh           # One-time cicd-bot IAM setup
 ├── docs/                           # Lab documentation
 └── .gitignore                      # Terraform state exclusions
 ```
 
 This approach keeps things simple — all changes go through PRs, and a single `infra/` directory holds the complete environment.
+
+#### What is managed manually vs. by Terraform
+
+| Resource | Managed by | Why |
+|---|---|---|
+| AWS account, root user | Manual | One-time setup |
+| `admin` IAM user + Administrators group | Manual | Needed before Terraform can run |
+| S3 bucket (state) | Manual | Terraform can't manage its own backend. S3 bucket names are globally unique — choose your own name |
+| DynamoDB table (lock) | Manual | Same reason |
+| VPC, subnets, NAT, endpoints | Terraform | Core infrastructure |
+| ALB + EC2 instance (Nginx) | Terraform | Web server in private subnet behind ALB |
+| IAM role + instance profile (SSM) | Terraform | EC2 access via SSM Session Manager |
+| `cicd-bot` IAM user + policies | Manual (`scripts/setup-cicd-bot.sh`) | CI/CD credentials — managed outside Terraform to avoid circular dependency |
+| Budget alarm ($50/month) | Terraform | Automated cost control |
+| GitHub environment + secrets | Manual | GitHub-side config, not AWS |
 
 #### Create a PROD environment in GitHub
 
