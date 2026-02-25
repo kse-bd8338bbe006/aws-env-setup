@@ -110,7 +110,7 @@ fi
 echo ""
 echo "Done."
 echo ""
-echo "NOTE: Using long-lived IAM access keys is not the recommended approach."
+echo "NOTE: Using long-lived IAM access keys is not the recommended approach nowadays."
 echo "The preferred method is to use GitHub OIDC (OpenID Connect) with AWS IAM"
 echo "roles, which eliminates the need for stored credentials entirely."
 echo ""
