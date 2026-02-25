@@ -153,11 +153,38 @@ It is a good practice to separate human and machine credentials. Create a dedica
 4. Do **not** enable console access (this is a machine user)
 5. Click **Next**
 
-
-
 On the **Set permissions** step, select **Add user to group** and check the **Administrators** group:
 
 ![alt text](image-22.png)
+
+> **Better alternative: GitHub OIDC (OpenID Connect)**
+>
+> Using long-lived IAM access keys (as we do in this lab) is the simplest approach but **not the recommended one** for production. The preferred method is **GitHub OIDC with AWS IAM roles** — this eliminates stored credentials entirely.
+>
+> With OIDC, GitHub Actions requests a **short-lived token** from AWS on each workflow run. There are no secrets to rotate and no keys that can leak. AWS trusts GitHub as an identity provider and issues temporary credentials scoped to the specific repository, branch, and environment.
+>
+> **How it works:**
+> 1. Create an OIDC identity provider in AWS IAM for `token.actions.githubusercontent.com`
+> 2. Create an IAM role with a trust policy that allows your specific repo to assume it
+> 3. In the workflow, replace secret-based credentials with role assumption:
+>    ```yaml
+>    - name: Configure AWS
+>      uses: aws-actions/configure-aws-credentials@v4
+>      with:
+>        role-to-assume: arn:aws:iam::ACCOUNT_ID:role/github-actions-terraform
+>        role-session-name: github-actions
+>        aws-region: eu-central-1
+>    ```
+>
+> **Benefits over access keys:**
+> - No long-lived secrets to store or rotate
+> - Credentials are scoped to a single workflow run (typically valid for 1 hour)
+> - Can restrict which branches and environments are allowed to assume the role
+> - Follows AWS and GitHub security best practices
+>
+> See: [Configuring OpenID Connect in AWS](https://docs.github.com/en/actions/security-for-github-actions/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services)
+>
+> We use IAM access keys in this lab for simplicity, but keep OIDC in mind for real projects.
 
 ### Create a budget in AWS
 
@@ -348,13 +375,9 @@ terraform plan
 terraform apply
 ```
 
-After a successful apply, Terraform will output the `cicd-bot` access key ID. The secret key is marked as sensitive, so to reveal it run:
+After a successful apply, Terraform will output the ALB DNS name. You can access the web server at that URL.
 
-```bash
-terraform output -raw cd_user_access_key_secret
-```
-
-Store both values as GitHub repository secrets (`AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`) so the CI/CD pipeline can take over from here.
+To set up the CI/CD pipeline, create the `cicd-bot` IAM user using the setup script (see the architecture document for details), then store the credentials as GitHub repository secrets (`AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`).
 
 ### GitHub repository configuration
 
@@ -372,7 +395,7 @@ We use **GitHub Flow** — a simple trunk-based strategy where `main` is always 
 main
  ├── feature/vpc-hardening
  ├── feature/security-groups-refactor
- └── fix/ecs-task-role
+ └── fix/sg-ingress-rule
 ```
 
 All infrastructure lives in a single repository with a flat structure — one Terraform root module under `infra/`:
@@ -423,9 +446,9 @@ Go to your repository **Settings → Environments** and create a new environment
 
 ![alt text](github-repo-configuration/image-1.png)
 
-Set the following **Environment Secrets** (use the values from the Terraform bootstrap step):
-- `AWS_ACCESS_KEY_ID` — copy from `terraform output -raw cd_user_access_key_id`
-- `AWS_SECRET_ACCESS_KEY` — copy from `terraform output -raw cd_user_access_key_secret`
+Set the following **Environment Secrets** (use the `cicd-bot` credentials from the setup script):
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
 
 Set the following **Environment Variable**:
 - `AWS_REGION` — set to `eu-central-1`
@@ -434,10 +457,11 @@ Set the following **Environment Variable**:
 
 #### GitHub Actions workflow
 
-Our CI/CD pipeline has two separate jobs:
+Our CI/CD pipeline has three separate jobs:
 
+- **checkov** — runs on PR creation, performs Checkov security scan with SARIF upload to GitHub Security tab
 - **plan** — runs on PR creation, shows what Terraform will change
-- **apply** — runs on merge to `main`, deploys to production
+- **apply** — runs on merge to `main` (or manual dispatch), deploys to production
 
 A simpler approach is to run plan and apply in a single job:
 

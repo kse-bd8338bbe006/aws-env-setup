@@ -27,8 +27,12 @@ graph LR
 graph TB
     subgraph GitHub["GitHub Actions"]
         direction LR
-        PR[Pull Request] -.->|trigger| Plan
+        PR[Pull Request] -.->|trigger| CheckovJob & Plan
         Main[Push to main] -.->|trigger| Apply
+
+        subgraph CheckovJob[Checkov Job]
+            Checkov[Checkov scan + SARIF upload]
+        end
 
         subgraph Plan[Plan Job]
             Validate[terraform validate]
@@ -91,6 +95,7 @@ sequenceDiagram
     actor Dev as Developer
     participant GH as GitHub
     participant Plan as Plan Job
+    participant Checkov as Checkov Job
     participant Apply as Apply Job
     participant Approver as Reviewer
     participant AWS as AWS
@@ -107,12 +112,16 @@ sequenceDiagram
     Plan->>AWS: terraform plan
     Plan->>GH: Post plan as PR comment
 
+    GH->>Checkov: Start checkov job
+    Checkov->>Checkov: Checkov scan + SARIF upload
+
     Approver->>GH: Review plan + approve PR
     Dev->>GH: Merge PR to main
 
     Note over GH: Trigger: push to main<br/>Path filter: infra/**
 
     GH->>Apply: Start apply job
+    Apply->>Apply: Checkov scan + SARIF upload
     Apply->>AWS: terraform init
     Apply->>Apply: Checkov scan + SARIF upload
     Apply->>AWS: terraform plan -out=tfplan
