@@ -60,7 +60,7 @@ try {
     Write-Host "    S3 policy already exists, skipping"
 } catch {
     $S3PolicyFile = [System.IO.Path]::GetTempFileName()
-    $S3Policy | Out-File -Encoding utf8 -FilePath $S3PolicyFile
+    [System.IO.File]::WriteAllText($S3PolicyFile, $S3Policy)
     aws iam create-policy `
         --policy-name "${UserName}-tf-s3" `
         --description "Allow user to use S3 for TF backend" `
@@ -94,7 +94,7 @@ try {
     Write-Host "    DynamoDB policy already exists, skipping"
 } catch {
     $DdbPolicyFile = [System.IO.Path]::GetTempFileName()
-    $DdbPolicy | Out-File -Encoding utf8 -FilePath $DdbPolicyFile
+    [System.IO.File]::WriteAllText($DdbPolicyFile, $DdbPolicy)
     aws iam create-policy `
         --policy-name "${UserName}-tf-dynamodb" `
         --description "Allow user to use DynamoDB for TF state locking" `
