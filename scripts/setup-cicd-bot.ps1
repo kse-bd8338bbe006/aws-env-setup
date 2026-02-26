@@ -59,10 +59,13 @@ try {
     aws iam get-policy --policy-arn $S3PolicyArn 2>$null | Out-Null
     Write-Host "    S3 policy already exists, skipping"
 } catch {
+    $S3PolicyFile = [System.IO.Path]::GetTempFileName()
+    $S3Policy | Out-File -Encoding utf8 -FilePath $S3PolicyFile
     aws iam create-policy `
         --policy-name "${UserName}-tf-s3" `
         --description "Allow user to use S3 for TF backend" `
-        --policy-document $S3Policy
+        --policy-document "file://$S3PolicyFile"
+    Remove-Item $S3PolicyFile -ErrorAction SilentlyContinue
     if ($LASTEXITCODE -ne 0) { throw "Failed to create S3 policy" }
 }
 
@@ -90,10 +93,13 @@ try {
     aws iam get-policy --policy-arn $DdbPolicyArn 2>$null | Out-Null
     Write-Host "    DynamoDB policy already exists, skipping"
 } catch {
+    $DdbPolicyFile = [System.IO.Path]::GetTempFileName()
+    $DdbPolicy | Out-File -Encoding utf8 -FilePath $DdbPolicyFile
     aws iam create-policy `
         --policy-name "${UserName}-tf-dynamodb" `
         --description "Allow user to use DynamoDB for TF state locking" `
-        --policy-document $DdbPolicy
+        --policy-document "file://$DdbPolicyFile"
+    Remove-Item $DdbPolicyFile -ErrorAction SilentlyContinue
     if ($LASTEXITCODE -ne 0) { throw "Failed to create DynamoDB policy" }
 }
 
