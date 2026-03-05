@@ -47,7 +47,7 @@ resource "aws_security_group" "web" {
 }
 
 #############################
-# Application Load Balancer #
+# application Load Balancer #
 #############################
 
 resource "aws_lb" "web" {
