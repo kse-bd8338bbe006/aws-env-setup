@@ -8,7 +8,7 @@ set -euo pipefail
 
 USER_NAME="cicd-bot"
 REGION="eu-central-1"
-TF_STATE_BUCKET="cicd-security-tf-state-1"
+TF_STATE_BUCKET="cicd-security-tf-state-emir-2026"
 TF_STATE_KEY="tf-state-setup"
 TF_LOCK_TABLE="cicd-security-tf-state-lock"
 
